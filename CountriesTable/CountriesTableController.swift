@@ -19,14 +19,68 @@ struct Country:CustomStringConvertible {
 class CountriesTableController: UITableViewController {
 
     var countries:[Country] = []
+    let reachability = try! Reachability()
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        navigationItem.rightBarButtonItem = UIBarButtonItem(title:"Sort By Name", style: .plain, target: self, action: #selector(sortCountriesTableByName))
-        
-        navigationItem.leftBarButtonItem = UIBarButtonItem(title:"Sort By Area", style: .plain, target: self, action: #selector(sortCountriesTableByArea))
+
+        navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Sort", image: nil, primaryAction: nil, menu: menuItems())
         
         getCountriesData()
     }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        NotificationCenter.default.addObserver(self, selector: #selector(reachabilityChanged(note:)), name: .reachabilityChanged, object: reachability)
+        do {
+            try reachability.startNotifier()
+        } catch {
+            print("Unable to start notifier")
+        }
+    }
+    
+    
+    
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        reachability.stopNotifier()
+        NotificationCenter.default.removeObserver(self, name: .reachabilityChanged, object: reachability)
+    }
+    
+    //MARK: helper functions
+    func menuItems() -> UIMenu {
+        let menuItems = UIMenu(title: "", options: .displayInline, children: [
+            UIAction(title: "By name"){(_) in
+                self.sortCountriesTableByName()
+            },
+            UIAction(title: "By area"){(_) in
+                self.sortCountriesTableByArea()
+            }
+        ])
+        
+        return menuItems
+    }
+    func offerSetting(_ animated: Bool) {
+        let alertController = UIAlertController (title: "Title", message: "Go to Settings?", preferredStyle: .alert)
+
+        let settingsAction = UIAlertAction(title: "Settings", style: .default) { (_) -> Void in
+
+            guard let settingsUrl = URL(string: UIApplication.openSettingsURLString) else {
+                return
+            }
+
+            if UIApplication.shared.canOpenURL(settingsUrl) {
+                UIApplication.shared.open(settingsUrl, completionHandler: { (success) in
+                    print("Settings opened: \(success)") // Prints true
+                })
+            }
+        }
+        alertController.addAction(settingsAction)
+        let cancelAction = UIAlertAction(title: "Cancel", style: .default, handler: nil)
+        alertController.addAction(cancelAction)
+
+        present(alertController, animated: true, completion: nil)
+    }
+    
     
     func populateTable(json:[[String:Any]]) {
         for country in json {
@@ -42,27 +96,52 @@ class CountriesTableController: UITableViewController {
                self.tableView.reloadData()
               }
     }
+    
+    
     func getCountriesData() {
         if let url = URL(string: "https://restcountries.eu/rest/v2/all?fields=name;nativeName;area") {
            URLSession.shared.dataTask(with: url) { data, response, error in
             if let data = data {
                       do {
-                        let json = try? JSONSerialization.jsonObject(with: data, options: []) as! [[String:Any]]
+                        let json = try? (JSONSerialization.jsonObject(with: data, options: []) as! [[String:Any]])
                         self.populateTable(json: json!)
                       }
                    }
                }.resume()
         }
+        
+
     }
     
-    @objc func sortCountriesTableByName() {
+        
+    // MARK: - sort funcs
+
+    
+    func sortCountriesTableByName() {
         countries.sort{$0.name < $1.name}
         tableView.reloadData()
     }
     
-    @objc func sortCountriesTableByArea() {
+    func sortCountriesTableByArea() {
         countries.sort{$0.area < $1.area}
         tableView.reloadData()
+    }
+    
+    @objc func reachabilityChanged(note: Notification) {
+        let reachability = note.object as! Reachability
+
+        switch reachability.connection {
+        case .wifi:
+            print("Wifi Connection")
+        case .cellular:
+            print("Cellular Connection")
+        case .unavailable:
+            print("No Connection")
+            offerSetting(true)
+            
+        case .none:
+            print("No Connection")
+        }
     }
     
     // MARK: - Table view data source
@@ -81,55 +160,9 @@ class CountriesTableController: UITableViewController {
         
         cell.countryNameLabel.text = countries[indexPath.row].name
         cell.countryNativeNameLabel.text = countries[indexPath.row].nativeName
-        cell.countryAreaLabel.text = "Area: " + String(countries[indexPath.row].area)
+        cell.countryAreaLabel.text = "Area: " + String(countries[indexPath.row].area) + " Kms Squared"
         
         return cell
     }
     
-
-    /*
-    // Override to support conditional editing of the table view.
-    override func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
-        // Return false if you do not want the specified item to be editable.
-        return true
-    }
-    */
-
-    /*
-    // Override to support editing the table view.
-    override func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
-        if editingStyle == .delete {
-            // Delete the row from the data source
-            tableView.deleteRows(at: [indexPath], with: .fade)
-        } else if editingStyle == .insert {
-            // Create a new instance of the appropriate class, insert it into the array, and add a new row to the table view
-        }    
-    }
-    */
-
-    /*
-    // Override to support rearranging the table view.
-    override func tableView(_ tableView: UITableView, moveRowAt fromIndexPath: IndexPath, to: IndexPath) {
-
-    }
-    */
-
-    /*
-    // Override to support conditional rearranging of the table view.
-    override func tableView(_ tableView: UITableView, canMoveRowAt indexPath: IndexPath) -> Bool {
-        // Return false if you do not want the item to be re-orderable.
-        return true
-    }
-    */
-
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        // Get the new view controller using segue.destination.
-        // Pass the selected object to the new view controller.
-    }
-    */
-
 }
