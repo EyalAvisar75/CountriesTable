@@ -7,15 +7,7 @@
 
 import UIKit
 
-struct Country:CustomStringConvertible {
-    var description:String {return "\(name), \(nativeName), \(area)"}
-    
-    let name:String
-    let nativeName:String
-    let area:Double
-    
-    
-}
+
 class CountriesTableController: UITableViewController {
 
     var countries:[Country] = []
@@ -59,6 +51,8 @@ class CountriesTableController: UITableViewController {
         
         return menuItems
     }
+    
+    
     func offerSetting(_ animated: Bool) {
         let alertController = UIAlertController (title: "Title", message: "Go to Settings?", preferredStyle: .alert)
 
@@ -84,12 +78,17 @@ class CountriesTableController: UITableViewController {
     
     func populateTable(json:[[String:Any]]) {
         for country in json {
-            let name = country["name"]! as! String
-            let nativeName = country["nativeName"]! as! String
+            let name = country["name"] as! String
+            let nativeName = country["nativeName"] as! String
             let area = country["area"] != nil ? country["area"] as! Double : 0.0
+            let borders = country["borders"]! as! [String]
+            let code = country["alpha3Code"] as? String ?? "FRA"
+
             
             
-            let tableCountry = Country(name: name, nativeName: nativeName, area: area)
+            let tableCountry = Country(name: name, nativeName: nativeName, area: area, borders: borders, code: code)
+            
+            
             self.countries.append(tableCountry)
         }
         DispatchQueue.main.sync {
@@ -99,7 +98,7 @@ class CountriesTableController: UITableViewController {
     
     
     func getCountriesData() {
-        if let url = URL(string: "https://restcountries.eu/rest/v2/all?fields=name;nativeName;area") {
+        if let url = URL(string: "https://restcountries.eu/rest/v2/all?fields=name;nativeName;area;borders;alpha3Code") {
            URLSession.shared.dataTask(with: url) { data, response, error in
             if let data = data {
                       do {
@@ -163,6 +162,25 @@ class CountriesTableController: UITableViewController {
         cell.countryAreaLabel.text = "Area: " + String(countries[indexPath.row].area) + " Kms Squared"
         
         return cell
+    }
+    
+    override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        
+        let bordersTable = (storyboard?.instantiateViewController(identifier: "BordersTable"))! as! BordersTableViewController
+        
+//        print("before \(countries[indexPath.row].borders)")
+        
+        for country in countries {
+            print(countries[indexPath.row].borders, country.code)
+            if countries[indexPath.row].borders.contains(country.code) {
+                bordersTable.countries.append(country)
+            }
+        }
+//        bordersTable.countries = countries
+        
+        (navigationController?.pushViewController(bordersTable, animated: true))
+            
+        print(countries[indexPath.row])
     }
     
 }
